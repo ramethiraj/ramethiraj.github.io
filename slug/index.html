@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Slugify | RMKR Toolkit</title>
+  <meta name="description" content="Turn titles into URL-safe slugs.">
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/site.css">
+  
+  <script src="../assets/site.js" defer></script>
+</head>
+<body data-root="../" data-tool="slug">
+<main class="wrap page-main" id="main">
+  <h1 class="page-title">Slugify</h1>
+  <p class="page-lead">Lowercase, strip marks, and choose the separator. Handy for docs and routes.</p>
+
+  <label for="input">Text</label>
+  <textarea id="input" spellcheck="false" style="min-height:120px;">Hello, Toolkit — Café Résumé!</textarea>
+  <div class="toolbar">
+    <label for="sep" style="margin:0;">Separator</label>
+    <select id="sep" style="width:auto;">
+      <option value="-">hyphen</option>
+      <option value="_">underscore</option>
+    </select>
+    <label class="muted" style="margin:0;text-transform:none;letter-spacing:0;font-weight:600;">
+      <input type="checkbox" id="strict" checked> ASCII only
+    </label>
+    <button class="btn btn-gold" type="button" id="run">Slugify</button>
+    <button class="btn btn-ghost" type="button" id="copyOut">Copy</button>
+  </div>
+  <p class="status" id="status" role="status"></p>
+  <label for="output">Slug</label>
+  <input id="output" type="text" readonly>
+
+</main>
+<script>
+
+function slugify(text, sep, ascii) {
+  let s = text.normalize('NFKD');
+  if (ascii) s = s.replace(/[\u0300-\u036f]/g,'').replace(/[^\x00-\x7F]/g,'');
+  s = s.toLowerCase().replace(/['’]/g,'').replace(/[^a-z0-9]+/g, sep).replace(new RegExp('^'+sep+'+|'+sep+'+$','g'),'');
+  return s || 'slug';
+}
+function run() {
+  const sep = document.getElementById('sep').value;
+  const out = slugify(document.getElementById('input').value, sep, document.getElementById('strict').checked);
+  document.getElementById('output').value = out;
+  RMKR.setStatus(document.getElementById('status'), 'Ready.', 'ok');
+}
+document.getElementById('run').onclick = run;
+document.getElementById('input').addEventListener('input', run);
+document.getElementById('sep').addEventListener('change', run);
+document.getElementById('strict').addEventListener('change', run);
+document.getElementById('copyOut').onclick = () => {
+  RMKR.copy(document.getElementById('output').value).then(() => RMKR.setStatus(document.getElementById('status'), 'Copied.', 'ok'));
+};
+run();
+
+</script>
+</body>
+</html>

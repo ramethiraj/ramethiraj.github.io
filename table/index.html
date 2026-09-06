@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Markdown Table | RMKR Toolkit</title>
+  <meta name="description" content="Build Markdown tables from CSV or TSV.">
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/site.css">
+  
+  <script src="../assets/site.js" defer></script>
+</head>
+<body data-root="../" data-tool="table">
+<main class="wrap page-main" id="main">
+  <h1 class="page-title">Markdown Table</h1>
+  <p class="page-lead">Paste spreadsheet cells or type rows. Alignment stays left unless you change it.</p>
+
+  <div class="toolbar">
+    <button class="btn btn-gold" type="button" id="run">Build table</button>
+    <button class="btn btn-ghost" type="button" id="copyOut">Copy Markdown</button>
+  </div>
+  <p class="status" id="status" role="status"></p>
+  <div class="pane-grid">
+    <div>
+      <label for="input">CSV / TSV / pipes</label>
+      <textarea id="input" spellcheck="false">Name,Role,City
+Ada,Engineer,London
+Grace,Compiler,New York</textarea>
+    </div>
+    <div>
+      <label for="output">Markdown</label>
+      <textarea id="output" spellcheck="false" readonly></textarea>
+    </div>
+  </div>
+
+</main>
+<script>
+
+function splitLine(line) {
+  if (line.includes('\t')) return line.split('\t');
+  if (line.includes('|') && !line.includes(',')) return line.split('|').map(s => s.trim()).filter((c,i,a)=>!(c==='' && (i===0||i===a.length-1)));
+  const cells=[]; let cur=''; let q=false;
+  for (let i=0;i<line.length;i++) {
+    const ch=line[i];
+    if (ch==='"') { if (q && line[i+1]==='"') { cur+='"'; i++; } else q=!q; }
+    else if (ch===',' && !q) { cells.push(cur); cur=''; }
+    else cur+=ch;
+  }
+  cells.push(cur);
+  return cells.map(s => s.trim());
+}
+function toMd(text) {
+  const rows = text.split(/\r?\n/).map(splitLine).filter(r => r.some(c => c));
+  if (!rows.length) throw new Error('Paste rows first.');
+  const width = Math.max(...rows.map(r => r.length));
+  const norm = rows.map(r => { const c=r.slice(); while(c.length<width) c.push(''); return c; });
+  const esc = s => String(s).replace(/\|/g,'\\|');
+  const head = '| ' + norm[0].map(esc).join(' | ') + ' |';
+  const sep = '| ' + norm[0].map(()=> '---').join(' | ') + ' |';
+  const body = norm.slice(1).map(r => '| ' + r.map(esc).join(' | ') + ' |').join('\n');
+  return head + '\n' + sep + (body ? '\n' + body : '');
+}
+document.getElementById('run').onclick = () => {
+  try {
+    document.getElementById('output').value = toMd(document.getElementById('input').value);
+    RMKR.setStatus(document.getElementById('status'), 'Table built.', 'ok');
+  } catch (e) { RMKR.setStatus(document.getElementById('status'), e.message, 'err'); }
+};
+document.getElementById('copyOut').onclick = () => {
+  const v = document.getElementById('output').value;
+  if (!v) return RMKR.setStatus(document.getElementById('status'), 'Build first.', 'err');
+  RMKR.copy(v).then(() => RMKR.setStatus(document.getElementById('status'), 'Copied.', 'ok'));
+};
+document.getElementById('run').click();
+
+</script>
+</body>
+</html>

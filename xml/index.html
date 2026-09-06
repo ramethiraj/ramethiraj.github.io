@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XML ↔ JSON | RMKR Toolkit</title>
+  <meta name="description" content="Convert XML and JSON in the browser.">
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/site.css">
+  
+  <script src="../assets/site.js" defer></script>
+</head>
+<body data-root="../" data-tool="xml">
+<main class="wrap page-main" id="main">
+  <h1 class="page-title">XML ↔ JSON</h1>
+  <p class="page-lead">Uses the built-in DOM parser. Attributes become @attr keys. Text content uses #text.</p>
+
+  <div class="toolbar">
+    <button class="btn btn-gold" type="button" id="toJson">XML → JSON</button>
+    <button class="btn btn-ghost" type="button" id="toXml">JSON → XML</button>
+    <button class="btn btn-ghost" type="button" id="copyOut">Copy output</button>
+  </div>
+  <p class="status" id="status" role="status"></p>
+  <div class="pane-grid">
+    <div>
+      <label for="input">Input</label>
+      <textarea id="input" spellcheck="false">&lt;order id="1001"&gt;
+  &lt;status&gt;PAID&lt;/status&gt;
+  &lt;item sku="A1" qty="2"&gt;Widget&lt;/item&gt;
+&lt;/order&gt;</textarea>
+    </div>
+    <div>
+      <label for="output">Output</label>
+      <textarea id="output" spellcheck="false" readonly></textarea>
+    </div>
+  </div>
+
+</main>
+<script>
+
+function nodeToJson(node) {
+  if (node.nodeType === 3 || node.nodeType === 4) {
+    const t = node.nodeValue.trim();
+    return t ? t : null;
+  }
+  if (node.nodeType !== 1) return null;
+  const obj = {};
+  if (node.attributes && node.attributes.length) {
+    for (const a of node.attributes) obj['@' + a.name] = a.value;
+  }
+  const kids = [];
+  node.childNodes.forEach(ch => {
+    const v = nodeToJson(ch);
+    if (v == null || v === '') return;
+    if (typeof v === 'string') kids.push(v);
+    else {
+      const name = ch.nodeName;
+      if (obj[name] === undefined) obj[name] = v;
+      else obj[name] = Array.isArray(obj[name]) ? obj[name].concat(v) : [obj[name], v];
+    }
+  });
+  if (kids.length && !Object.keys(obj).length) return kids.join(' ');
+  if (kids.length) obj['#text'] = kids.join(' ');
+  return obj;
+}
+function xmlToJson(text) {
+  const doc = new DOMParser().parseFromString(text, 'application/xml');
+  const err = doc.querySelector('parsererror');
+  if (err) throw new Error(err.textContent.split('\n')[0] || 'Invalid XML.');
+  const root = doc.documentElement;
+  return { [root.nodeName]: nodeToJson(root) };
+}
+function jsonToXml(value, name) {
+  if (value == null) return '';
+  if (typeof value !== 'object') return '<' + name + '>' + escapeXml(String(value)) + '</' + name + '>';
+  if (Array.isArray(value)) return value.map(v => jsonToXml(v, name)).join('');
+  let attrs = '', children = '', text = '';
+  Object.entries(value).forEach(([k,v]) => {
+    if (k === '#text') text += escapeXml(String(v));
+    else if (k.startsWith('@')) attrs += ' ' + k.slice(1) + '="' + escapeXml(String(v)) + '"';
+    else children += jsonToXml(v, k);
+  });
+  const tag = name || 'root';
+  if (!children && !text) return '<' + tag + attrs + '/>';
+  return '<' + tag + attrs + '>' + text + children + '</' + tag + '>';
+}
+function escapeXml(s) {
+  return s.replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[ch]));
+}
+const input = document.getElementById('input');
+const output = document.getElementById('output');
+document.getElementById('toJson').onclick = () => {
+  try { output.value = JSON.stringify(xmlToJson(input.value), null, 2); RMKR.setStatus(document.getElementById('status'), 'Converted to JSON.', 'ok'); }
+  catch (e) { RMKR.setStatus(document.getElementById('status'), e.message, 'err'); }
+};
+document.getElementById('toXml').onclick = () => {
+  try {
+    const obj = JSON.parse(input.value);
+    const keys = Object.keys(obj);
+    const xml = keys.length === 1 ? jsonToXml(obj[keys[0]], keys[0]) : jsonToXml(obj, 'root');
+    output.value = xml;
+    RMKR.setStatus(document.getElementById('status'), 'Converted to XML.', 'ok');
+  } catch (e) { RMKR.setStatus(document.getElementById('status'), e.message, 'err'); }
+};
+document.getElementById('copyOut').onclick = () => {
+  if (!output.value) return RMKR.setStatus(document.getElementById('status'), 'Nothing to copy.', 'err');
+  RMKR.copy(output.value).then(() => RMKR.setStatus(document.getElementById('status'), 'Copied.', 'ok'));
+};
+
+</script>
+</body>
+</html>

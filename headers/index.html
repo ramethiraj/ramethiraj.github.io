@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Headers Parser | RMKR Toolkit</title>
+  <meta name="description" content="Parse raw HTTP headers into JSON.">
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/site.css">
+  
+  <script src="../assets/site.js" defer></script>
+</head>
+<body data-root="../" data-tool="headers">
+<main class="wrap page-main" id="main">
+  <h1 class="page-title">Headers Parser</h1>
+  <p class="page-lead">Paste a request or response head. Cookies and set-cookie values stay as arrays when repeated.</p>
+
+  <div class="toolbar">
+    <button class="btn btn-gold" type="button" id="run">Parse</button>
+    <button class="btn btn-ghost" type="button" id="copyOut">Copy JSON</button>
+  </div>
+  <p class="status" id="status" role="status"></p>
+  <div class="pane-grid">
+    <div>
+      <label for="input">Raw headers</label>
+      <textarea id="input" spellcheck="false">GET /api HTTP/1.1
+Host: example.com
+Accept: application/json
+Authorization: Bearer demo
+Cookie: a=1; b=2
+</textarea>
+    </div>
+    <div>
+      <label for="output">JSON</label>
+      <textarea id="output" spellcheck="false" readonly></textarea>
+    </div>
+  </div>
+
+</main>
+<script>
+
+function parseHeaders(text) {
+  const lines = text.replace(/\r/g,'').split('\n');
+  const out = { startLine: null, headers: {} };
+  let i = 0;
+  if (lines[0] && !lines[0].includes(':')) { out.startLine = lines[0].trim(); i = 1; }
+  for (; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) break;
+    const idx = line.indexOf(':');
+    if (idx < 1) continue;
+    const k = line.slice(0, idx).trim().toLowerCase();
+    const v = line.slice(idx+1).trim();
+    if (out.headers[k] === undefined) out.headers[k] = v;
+    else out.headers[k] = Array.isArray(out.headers[k]) ? out.headers[k].concat(v) : [out.headers[k], v];
+  }
+  if (out.headers.cookie && typeof out.headers.cookie === 'string') {
+    const cookies = {};
+    out.headers.cookie.split(';').forEach(part => {
+      const [ck, ...rest] = part.split('=');
+      if (ck.trim()) cookies[ck.trim()] = rest.join('=').trim();
+    });
+    out.cookies = cookies;
+  }
+  return out;
+}
+document.getElementById('run').onclick = () => {
+  try {
+    const parsed = parseHeaders(document.getElementById('input').value);
+    document.getElementById('output').value = JSON.stringify(parsed, null, 2);
+    RMKR.setStatus(document.getElementById('status'), 'Parsed ' + Object.keys(parsed.headers).length + ' headers.', 'ok');
+  } catch (e) { RMKR.setStatus(document.getElementById('status'), e.message, 'err'); }
+};
+document.getElementById('copyOut').onclick = () => {
+  const v = document.getElementById('output').value;
+  if (!v) return RMKR.setStatus(document.getElementById('status'), 'Parse first.', 'err');
+  RMKR.copy(v).then(() => RMKR.setStatus(document.getElementById('status'), 'Copied.', 'ok'));
+};
+document.getElementById('run').click();
+
+</script>
+</body>
+</html>

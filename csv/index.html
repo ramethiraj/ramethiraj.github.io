@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSV Convert | RMKR Toolkit</title>
+  <meta name="description" content="Convert CSV, JSON, and YAML in the browser.">
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/site.css">
+  <script src="../assets/vendor/js-yaml.min.js"></script>
+  <script src="../assets/site.js" defer></script>
+</head>
+<body data-root="../" data-tool="csv">
+<main class="wrap page-main" id="main">
+  <h1 class="page-title">CSV Convert</h1>
+  <p class="page-lead">Parse quoted CSV, emit JSON or YAML, and rebuild CSV from object arrays.</p>
+
+  <div class="toolbar">
+    <button class="btn btn-gold" type="button" id="toJson">CSV → JSON</button>
+    <button class="btn btn-ghost" type="button" id="toYaml">CSV → YAML</button>
+    <button class="btn btn-ghost" type="button" id="toCsv">JSON → CSV</button>
+    <label class="muted" style="margin:0;text-transform:none;letter-spacing:0;font-weight:600;">
+      <input type="checkbox" id="header" checked> First row is header
+    </label>
+    <button class="btn btn-ghost" type="button" id="copyOut">Copy output</button>
+  </div>
+  <p class="status" id="status" role="status"></p>
+  <div class="pane-grid">
+    <div>
+      <label for="input">Input</label>
+      <textarea id="input" spellcheck="false">id,name,role
+1,Ada,engineer
+2,Grace,"compiler, lead"</textarea>
+    </div>
+    <div>
+      <label for="output">Output</label>
+      <textarea id="output" spellcheck="false" readonly></textarea>
+    </div>
+  </div>
+
+</main>
+<script>
+
+function parseCsv(text) {
+  const rows = [];
+  let row = [], cur = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i], n = text[i+1];
+    if (c === '"') {
+      if (q && n === '"') { cur += '"'; i++; }
+      else q = !q;
+    } else if ((c === ',' && !q) || ((c === '\n' || c === '\r') && !q)) {
+      if (c === '\r' && n === '\n') i++;
+      row.push(cur); cur = '';
+      if (c !== ',') { rows.push(row); row = []; }
+    } else cur += c;
+  }
+  if (cur.length || row.length) { row.push(cur); rows.push(row); }
+  return rows.filter(r => r.some(cell => String(cell).trim() !== ''));
+}
+function rowsToObjects(rows, header) {
+  if (!rows.length) return [];
+  if (!header) return rows.map((r, i) => ({ index: i + 1, values: r }));
+  const keys = rows[0].map((k, i) => k.trim() || ('col_' + (i + 1)));
+  return rows.slice(1).map(r => {
+    const o = {};
+    keys.forEach((k, i) => { o[k] = r[i] != null ? r[i] : ''; });
+    return o;
+  });
+}
+function toCsv(items) {
+  const arr = Array.isArray(items) ? items : [items];
+  if (!arr.length) return '';
+  const keys = Array.from(arr.reduce((s, o) => {
+    Object.keys(o || {}).forEach(k => s.add(k)); return s;
+  }, new Set()));
+  const esc = v => {
+    const s = v == null ? '' : (typeof v === 'object' ? JSON.stringify(v) : String(v));
+    return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  return [keys.join(','), ...arr.map(o => keys.map(k => esc(o[k])).join(','))].join('\n');
+}
+const input = document.getElementById('input');
+const output = document.getElementById('output');
+const status = document.getElementById('status');
+function objects() {
+  const text = input.value.trim();
+  if (!text) throw new Error('Paste CSV or JSON first.');
+  if (text.startsWith('{') || text.startsWith('[')) {
+    const v = JSON.parse(text);
+    return Array.isArray(v) ? v : [v];
+  }
+  return rowsToObjects(parseCsv(text), document.getElementById('header').checked);
+}
+document.getElementById('toJson').onclick = () => {
+  try { output.value = JSON.stringify(objects(), null, 2); RMKR.setStatus(status, 'Converted to JSON.', 'ok'); }
+  catch (e) { RMKR.setStatus(status, e.message, 'err'); }
+};
+document.getElementById('toYaml').onclick = () => {
+  try { output.value = jsyaml.dump(objects()); RMKR.setStatus(status, 'Converted to YAML.', 'ok'); }
+  catch (e) { RMKR.setStatus(status, e.message, 'err'); }
+};
+document.getElementById('toCsv').onclick = () => {
+  try { output.value = toCsv(objects()); RMKR.setStatus(status, 'Converted to CSV.', 'ok'); }
+  catch (e) { RMKR.setStatus(status, e.message, 'err'); }
+};
+document.getElementById('copyOut').onclick = () => {
+  if (!output.value) return RMKR.setStatus(status, 'Nothing to copy.', 'err');
+  RMKR.copy(output.value).then(() => RMKR.setStatus(status, 'Copied.', 'ok'));
+};
+
+</script>
+</body>
+</html>

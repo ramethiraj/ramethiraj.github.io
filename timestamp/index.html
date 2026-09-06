@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unix Timestamp | RMKR Toolkit</title>
+  <meta name="description" content="Convert Unix timestamps and human dates.">
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/site.css">
+  
+  <script src="../assets/site.js" defer></script>
+</head>
+<body data-root="../" data-tool="timestamp">
+<main class="wrap page-main" id="main">
+  <h1 class="page-title">Unix Timestamp</h1>
+  <p class="page-lead">Seconds or milliseconds, local time or UTC. Conversion stays in this browser.</p>
+
+  <div class="pane-grid">
+    <div class="card">
+      <label for="unix">Unix timestamp</label>
+      <input id="unix" type="text" inputmode="numeric" placeholder="1710000000">
+      <div class="toolbar" style="margin-top:0.75rem;">
+        <button class="btn btn-gold" type="button" id="fromUnix">To date</button>
+        <button class="btn btn-ghost" type="button" id="now">Now</button>
+      </div>
+    </div>
+    <div class="card">
+      <label for="iso">ISO / local datetime</label>
+      <input id="iso" type="text" placeholder="2026-09-06T14:00:00Z">
+      <input id="local" type="datetime-local" style="margin-top:0.5rem;">
+      <div class="toolbar" style="margin-top:0.75rem;">
+        <button class="btn btn-gold" type="button" id="fromIso">To unix</button>
+      </div>
+    </div>
+  </div>
+  <p class="status" id="status" role="status"></p>
+  <div class="card" style="margin-top:1rem;">
+    <dl class="kvs">
+      <dt>Seconds</dt><dd class="mono" id="sec">—</dd>
+      <dt>Milliseconds</dt><dd class="mono" id="ms">—</dd>
+      <dt>UTC</dt><dd class="mono" id="utc">—</dd>
+      <dt>Local</dt><dd class="mono" id="loc">—</dd>
+      <dt>Relative</dt><dd id="rel">—</dd>
+    </dl>
+  </div>
+
+</main>
+<script>
+
+function rel(d) {
+  const diff = Date.now() - d.getTime();
+  const abs = Math.abs(diff);
+  const sec = Math.round(abs / 1000);
+  const unit = sec < 60 ? [sec, 'second'] : sec < 3600 ? [Math.round(sec/60), 'minute'] :
+    sec < 86400 ? [Math.round(sec/3600), 'hour'] : [Math.round(sec/86400), 'day'];
+  return (diff >= 0 ? '' : 'in ') + unit[0] + ' ' + unit[1] + (unit[0]===1?'':'s') + (diff >= 0 ? ' ago' : '');
+}
+function show(d) {
+  if (isNaN(d.getTime())) throw new Error('Could not parse that date or timestamp.');
+  document.getElementById('sec').textContent = String(Math.floor(d.getTime()/1000));
+  document.getElementById('ms').textContent = String(d.getTime());
+  document.getElementById('utc').textContent = d.toISOString();
+  document.getElementById('loc').textContent = d.toString();
+  document.getElementById('rel').textContent = rel(d);
+  document.getElementById('unix').value = String(Math.floor(d.getTime()/1000));
+  document.getElementById('iso').value = d.toISOString();
+  const pad = n => String(n).padStart(2,'0');
+  document.getElementById('local').value = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
+  RMKR.setStatus(document.getElementById('status'), 'Converted.', 'ok');
+}
+function parseUnix(raw) {
+  const n = Number(String(raw).trim());
+  if (!Number.isFinite(n)) throw new Error('Enter a numeric timestamp.');
+  return new Date(Math.abs(n) < 1e11 ? n * 1000 : n);
+}
+document.getElementById('fromUnix').onclick = () => {
+  try { show(parseUnix(document.getElementById('unix').value)); }
+  catch (e) { RMKR.setStatus(document.getElementById('status'), e.message, 'err'); }
+};
+document.getElementById('fromIso').onclick = () => {
+  try {
+    const iso = document.getElementById('iso').value.trim();
+    const local = document.getElementById('local').value;
+    show(new Date(iso || local));
+  } catch (e) { RMKR.setStatus(document.getElementById('status'), e.message, 'err'); }
+};
+document.getElementById('now').onclick = () => show(new Date());
+document.getElementById('now').click();
+
+</script>
+</body>
+</html>

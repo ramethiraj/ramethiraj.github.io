@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TOML ↔ JSON | RMKR Toolkit</title>
+  <meta name="description" content="Convert common TOML documents and JSON.">
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/site.css">
+  
+  <script src="../assets/site.js" defer></script>
+</head>
+<body data-root="../" data-tool="toml">
+<main class="wrap page-main" id="main">
+  <h1 class="page-title">TOML ↔ JSON</h1>
+  <p class="page-lead">Covers keys, strings, numbers, booleans, arrays, and [tables]. Nested dotted keys are supported.</p>
+
+  <div class="toolbar">
+    <button class="btn btn-gold" type="button" id="toJson">TOML → JSON</button>
+    <button class="btn btn-ghost" type="button" id="toToml">JSON → TOML</button>
+    <button class="btn btn-ghost" type="button" id="copyOut">Copy output</button>
+  </div>
+  <p class="status" id="status" role="status"></p>
+  <div class="pane-grid">
+    <div>
+      <label for="input">Input</label>
+      <textarea id="input" spellcheck="false">title = "demo"
+[server]
+host = "localhost"
+port = 8080
+features = ["yaml", "toml"]
+</textarea>
+    </div>
+    <div>
+      <label for="output">Output</label>
+      <textarea id="output" spellcheck="false" readonly></textarea>
+    </div>
+  </div>
+
+</main>
+<script>
+
+function parseToml(src) {
+  const root = {};
+  let current = root;
+  const lines = src.replace(/\r/g,'').split('\n');
+  function assign(obj, key, val) {
+    const parts = key.split('.');
+    let cur = obj;
+    for (let i=0;i<parts.length-1;i++) {
+      if (!cur[parts[i]] || typeof cur[parts[i]] !== 'object') cur[parts[i]] = {};
+      cur = cur[parts[i]];
+    }
+    cur[parts[parts.length-1]] = val;
+  }
+  function parseValue(raw) {
+    const t = raw.trim();
+    if (t === 'true') return true;
+    if (t === 'false') return false;
+    if (t === 'null') return null;
+    if (/^[+-]?\d+$/.test(t)) return parseInt(t,10);
+    if (/^[+-]?\d+\.\d+$/.test(t)) return parseFloat(t);
+    if (t.startsWith('[') && t.endsWith(']')) {
+      const inner = t.slice(1,-1).trim();
+      if (!inner) return [];
+      return splitArgs(inner).map(parseValue);
+    }
+    if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
+      return t.slice(1,-1).replace(/\\n/g,'\n');
+    }
+    return t;
+  }
+  function splitArgs(s) {
+    const out = []; let cur = ''; let q = null;
+    for (const ch of s) {
+      if (q) { cur += ch; if (ch === q) q = null; }
+      else if (ch === '"' || ch === "'") { q = ch; cur += ch; }
+      else if (ch === ',') { out.push(cur); cur = ''; }
+      else cur += ch;
+    }
+    if (cur.trim()) out.push(cur);
+    return out;
+  }
+  for (let line of lines) {
+    const hash = line.indexOf('#');
+    if (hash !== -1 && !/["']/.test(line.slice(0, hash))) line = line.slice(0, hash);
+    line = line.trim();
+    if (!line) continue;
+    const table = line.match(/^\[([^\]]+)\]$/);
+    if (table) {
+      const parts = table[1].split('.');
+      let cur = root;
+      parts.forEach(p => { if (!cur[p] || typeof cur[p] !== 'object') cur[p] = {}; cur = cur[p]; });
+      current = cur;
+      continue;
+    }
+    const eq = line.indexOf('=');
+    if (eq < 1) continue;
+    assign(current, line.slice(0,eq).trim(), parseValue(line.slice(eq+1)));
+  }
+  return root;
+}
+function toToml(obj, prefix) {
+  const simple = [];
+  const tables = [];
+  Object.entries(obj || {}).forEach(([k,v]) => {
+    if (v && typeof v === 'object' && !Array.isArray(v)) tables.push([k,v]);
+    else simple.push([k,v]);
+  });
+  let out = '';
+  simple.forEach(([k,v]) => { out += k + ' = ' + encode(v) + '\n'; });
+  tables.forEach(([k,v]) => {
+    const path = prefix ? prefix + '.' + k : k;
+    out += '\n[' + path + ']\n' + toToml(v, path);
+  });
+  return out;
+}
+function encode(v) {
+  if (Array.isArray(v)) return '[' + v.map(encode).join(', ') + ']';
+  if (typeof v === 'string') return JSON.stringify(v);
+  if (typeof v === 'boolean' || typeof v === 'number') return String(v);
+  if (v == null) return '""';
+  return JSON.stringify(String(v));
+}
+const input = document.getElementById('input');
+const output = document.getElementById('output');
+document.getElementById('toJson').onclick = () => {
+  try { output.value = JSON.stringify(parseToml(input.value), null, 2); RMKR.setStatus(document.getElementById('status'), 'Converted to JSON.', 'ok'); }
+  catch (e) { RMKR.setStatus(document.getElementById('status'), e.message, 'err'); }
+};
+document.getElementById('toToml').onclick = () => {
+  try { output.value = toToml(JSON.parse(input.value)).trim() + '\n'; RMKR.setStatus(document.getElementById('status'), 'Converted to TOML.', 'ok'); }
+  catch (e) { RMKR.setStatus(document.getElementById('status'), e.message, 'err'); }
+};
+document.getElementById('copyOut').onclick = () => {
+  if (!output.value) return RMKR.setStatus(document.getElementById('status'), 'Nothing to copy.', 'err');
+  RMKR.copy(output.value).then(() => RMKR.setStatus(document.getElementById('status'), 'Copied.', 'ok'));
+};
+
+</script>
+</body>
+</html>

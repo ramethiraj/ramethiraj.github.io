@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PEM / SSH Viewer | RMKR Toolkit</title>
+  <meta name="description" content="Inspect PEM blocks and SSH public key fingerprints.">
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/site.css">
+  
+  <script src="../assets/site.js" defer></script>
+</head>
+<body data-root="../" data-tool="cert">
+<main class="wrap page-main" id="main">
+  <h1 class="page-title">PEM / SSH Viewer</h1>
+  <p class="page-lead">Parses certificates and keys in this browser. Private keys are not uploaded.</p>
+
+  <label for="input">PEM or SSH public key</label>
+  <textarea id="input" spellcheck="false" placeholder="-----BEGIN CERTIFICATE----- or ssh-ed25519 AAAA..."></textarea>
+  <div class="toolbar">
+    <button class="btn btn-gold" type="button" id="run">Inspect</button>
+    <button class="btn btn-ghost" type="button" id="copyOut">Copy report</button>
+  </div>
+  <p class="status" id="status" role="status"></p>
+  <pre class="out" id="output">Paste a PEM block or an SSH public key.</pre>
+
+</main>
+<script>
+
+function b64ToBytes(b64) {
+  const clean = b64.replace(/\s+/g,'');
+  const bin = atob(clean);
+  const out = new Uint8Array(bin.length);
+  for (let i=0;i<bin.length;i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+function bytesToB64(bytes) {
+  let s = '';
+  bytes.forEach(b => s += String.fromCharCode(b));
+  return btoa(s);
+}
+class Der {
+  constructor(bytes) { this.b = bytes; this.i = 0; }
+  peek() { return this.b[this.i]; }
+  take(n) { const s = this.b.slice(this.i, this.i+n); this.i += n; return s; }
+  readLen() {
+    let n = this.b[this.i++];
+    if (n < 0x80) return n;
+    const c = n & 0x7f; n = 0;
+    for (let k=0;k<c;k++) n = (n<<8) | this.b[this.i++];
+    return n;
+  }
+  readTLV() {
+    const tag = this.b[this.i++];
+    const len = this.readLen();
+    const val = this.take(len);
+    return { tag, val };
+  }
+}
+function oidToStr(bytes) {
+  if (!bytes.length) return '';
+  const first = bytes[0];
+  const nums = [Math.floor(first/40), first%40];
+  let acc = 0;
+  for (let i=1;i<bytes.length;i++) {
+    acc = (acc<<7) | (bytes[i] & 0x7f);
+    if ((bytes[i] & 0x80) === 0) { nums.push(acc); acc = 0; }
+  }
+  return nums.join('.');
+}
+const OID = {
+  '2.5.4.3':'CN','2.5.4.6':'C','2.5.4.10':'O','2.5.4.11':'OU',
+  '2.5.4.7':'L','2.5.4.8':'ST','1.2.840.113549.1.1.11':'sha256WithRSAEncryption',
+  '1.2.840.113549.1.1.1':'rsaEncryption','1.2.840.10045.2.1':'ecPublicKey',
+  '1.2.840.10045.4.3.2':'ecdsa-with-SHA256'
+};
+function walkNames(bytes) {
+  const parts = [];
+  const d = new Der(bytes);
+  while (d.i < d.b.length) {
+    try {
+      const set = d.readTLV();
+      const sd = new Der(set.val);
+      while (sd.i < sd.b.length) {
+        const seq = sd.readTLV();
+        const id = new Der(seq.val);
+        const oid = id.readTLV();
+        const val = id.readTLV();
+        const name = OID[oidToStr(oid.val)] || oidToStr(oid.val);
+        parts.push(name + '=' + new TextDecoder().decode(val.val));
+      }
+    } catch (e) { break; }
+  }
+  return parts.join(', ');
+}
+function findTimes(bytes) {
+  const d = new Der(bytes);
+  const times = [];
+  function rec(buf) {
+    const inner = new Der(buf);
+    while (inner.i < inner.b.length) {
+      try {
+        const t = inner.readTLV();
+        if (t.tag === 0x17 || t.tag === 0x18) times.push(new TextDecoder().decode(t.val));
+        else if (t.tag === 0x30 || t.tag === 0x31) rec(t.val);
+      } catch (e) { break; }
+    }
+  }
+  rec(bytes);
+  return times.slice(0,2);
+}
+function inspectPem(text) {
+  const blocks = [...text.matchAll(/-----BEGIN ([^-]+)-----([\s\S]*?)-----END \1-----/g)];
+  const reports = [];
+  blocks.forEach((m, idx) => {
+    const type = m[1].trim();
+    const bytes = b64ToBytes(m[2]);
+    const lines = ['Block ' + (idx+1) + ': ' + type, 'DER bytes: ' + bytes.length];
+    if (type.toUpperCase().includes('CERTIFICATE')) {
+      try {
+        const der = new Der(bytes);
+        const cert = der.readTLV();
+        const inner = new Der(cert.val);
+        const tbsWrap = inner.readTLV();
+        const tbs = tbsWrap.tag === 0x30 ? tbsWrap.val : cert.val;
+        const names = [];
+        function hunt(buf, depth) {
+          const x = new Der(buf);
+          while (x.i < x.b.length) {
+            try {
+              const t = x.readTLV();
+              if (t.tag === 0x30 || t.tag === 0x31) {
+                const s = new TextDecoder().decode(t.val);
+                if (s.includes('\x06\x03U\x04')) names.push(walkNames(t.val));
+                if (depth < 6) hunt(t.val, depth+1);
+              }
+            } catch (e) { break; }
+          }
+        }
+        hunt(tbs, 0);
+        const uniq = [...new Set(names.filter(Boolean))];
+        if (uniq[0]) lines.push('Name fields: ' + uniq[0]);
+        if (uniq[1]) lines.push('Issuer / extra: ' + uniq[1]);
+        const times = findTimes(tbs);
+        if (times[0]) lines.push('Not before: ' + times[0]);
+        if (times[1]) lines.push('Not after: ' + times[1]);
+      } catch (e) {
+        lines.push('ASN.1 walk skipped: ' + e.message);
+      }
+    }
+    reports.push(lines.join('\n'));
+  });
+  return reports;
+}
+async function inspectSsh(line) {
+  const parts = line.trim().split(/\s+/);
+  if (parts.length < 2 || !parts[0].startsWith('ssh-') && !parts[0].startsWith('ecdsa-') && parts[0] !== 'sk-ssh-ed25519@openssh.com') {
+    throw new Error('Not an SSH public key line.');
+  }
+  const type = parts[0];
+  const blob = b64ToBytes(parts[1]);
+  const hash = await crypto.subtle.digest('SHA-256', blob);
+  const fp = 'SHA256:' + bytesToB64(new Uint8Array(hash)).replace(/=+$/,'');
+  return ['Type: ' + type, 'Comment: ' + (parts.slice(2).join(' ') || '—'), 'Blob bytes: ' + blob.length, 'Fingerprint: ' + fp].join('\n');
+}
+document.getElementById('run').onclick = async () => {
+  const text = document.getElementById('input').value.trim();
+  const out = document.getElementById('output');
+  if (!text) { out.textContent = 'Paste a PEM block or an SSH public key.'; RMKR.setStatus(document.getElementById('status'), 'Nothing to inspect.', 'err'); return; }
+  try {
+    if (text.includes('BEGIN ')) {
+      const reps = inspectPem(text);
+      out.textContent = reps.length ? reps.join('\n\n') : 'No PEM blocks found.';
+      RMKR.setStatus(document.getElementById('status'), reps.length + ' PEM block' + (reps.length===1?'':'s') + '.', 'ok');
+    } else {
+      out.textContent = await inspectSsh(text);
+      RMKR.setStatus(document.getElementById('status'), 'SSH key inspected.', 'ok');
+    }
+  } catch (e) { out.textContent = e.message; RMKR.setStatus(document.getElementById('status'), e.message, 'err'); }
+};
+document.getElementById('copyOut').onclick = () => {
+  RMKR.copy(document.getElementById('output').textContent).then(() => RMKR.setStatus(document.getElementById('status'), 'Copied.', 'ok'));
+};
+
+</script>
+</body>
+</html>

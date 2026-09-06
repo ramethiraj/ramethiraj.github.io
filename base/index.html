@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Number Base | RMKR Toolkit</title>
+  <meta name="description" content="Convert between binary, octal, decimal, and hex.">
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/site.css">
+  
+  <script src="../assets/site.js" defer></script>
+</head>
+<body data-root="../" data-tool="base">
+<main class="wrap page-main" id="main">
+  <h1 class="page-title">Number Base</h1>
+  <p class="page-lead">Enter a value in any base. The others update as you type.</p>
+
+  <p class="status" id="status" role="status"></p>
+  <div class="card">
+    <label for="dec">Decimal</label>
+    <input id="dec" type="text" inputmode="numeric" value="255">
+    <label for="hex" style="margin-top:0.8rem;">Hex</label>
+    <input id="hex" type="text" value="FF" spellcheck="false">
+    <label for="oct" style="margin-top:0.8rem;">Octal</label>
+    <input id="oct" type="text" value="377">
+    <label for="bin" style="margin-top:0.8rem;">Binary</label>
+    <input id="bin" type="text" value="11111111">
+  </div>
+
+</main>
+<script>
+
+const fields = { dec:10, hex:16, oct:8, bin:2 };
+function apply(n, origin) {
+  if (n < 0n || n > (2n**256n - 1n)) throw new Error('Stay within 0 and 256-bit unsigned.');
+  if (origin !== 'dec') document.getElementById('dec').value = n.toString(10);
+  if (origin !== 'hex') document.getElementById('hex').value = n.toString(16).toUpperCase();
+  if (origin !== 'oct') document.getElementById('oct').value = n.toString(8);
+  if (origin !== 'bin') document.getElementById('bin').value = n.toString(2);
+  RMKR.setStatus(document.getElementById('status'), 'Converted.', 'ok');
+}
+Object.entries(fields).forEach(([id, base]) => {
+  document.getElementById(id).addEventListener('input', () => {
+    const raw = document.getElementById(id).value.trim().replace(/^0x/i,'');
+    if (!raw) return;
+    try {
+      if (!new RegExp('^[0-9a-fA-F]+$').test(raw) && base === 16) throw new Error('Invalid hex.');
+      const n = BigInt(base === 16 ? '0x'+raw : base === 2 ? '0b'+raw : base === 8 ? '0o'+raw : raw);
+      apply(n, id);
+    } catch (e) { RMKR.setStatus(document.getElementById('status'), e.message || 'Invalid number.', 'err'); }
+  });
+});
+
+</script>
+</body>
+</html>
