@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>.env ↔ JSON | RMKR Toolkit</title>
+  <meta name="description" content="Convert dotenv files and JSON objects.">
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/site.css">
+  
+  <script src="../assets/site.js" defer></script>
+</head>
+<body data-root="../" data-tool="env">
+<main class="wrap page-main" id="main">
+  <h1 class="page-title">.env ↔ JSON</h1>
+  <p class="page-lead">Handles quotes, export prefixes, and comments. Useful for local config snippets.</p>
+
+  <div class="toolbar">
+    <button class="btn btn-gold" type="button" id="toJson">.env → JSON</button>
+    <button class="btn btn-ghost" type="button" id="toEnv">JSON → .env</button>
+    <button class="btn btn-ghost" type="button" id="copyOut">Copy output</button>
+  </div>
+  <p class="status" id="status" role="status"></p>
+  <div class="pane-grid">
+    <div>
+      <label for="input">Input</label>
+      <textarea id="input" spellcheck="false"># sample
+APP_ENV=local
+APP_DEBUG=true
+DATABASE_URL="postgres://user:pass@localhost:5432/app"
+</textarea>
+    </div>
+    <div>
+      <label for="output">Output</label>
+      <textarea id="output" spellcheck="false" readonly></textarea>
+    </div>
+  </div>
+
+</main>
+<script>
+
+function parseEnv(text) {
+  const out = {};
+  text.split(/\r?\n/).forEach(line => {
+    const t = line.trim();
+    if (!t || t.startsWith('#')) return;
+    const body = t.startsWith('export ') ? t.slice(7).trim() : t;
+    const i = body.indexOf('=');
+    if (i < 1) return;
+    let k = body.slice(0,i).trim();
+    let v = body.slice(i+1).trim();
+    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+      v = v.slice(1,-1).replace(/\\n/g, '\n');
+    }
+    out[k] = v;
+  });
+  return out;
+}
+function toEnv(obj) {
+  return Object.entries(obj).map(([k,v]) => {
+    const s = v == null ? '' : String(v);
+    return /[\s#"']/.test(s) ? k + '="' + s.replace(/"/g, '\\"') + '"' : k + '=' + s;
+  }).join('\n') + '\n';
+}
+const input = document.getElementById('input');
+const output = document.getElementById('output');
+document.getElementById('toJson').onclick = () => {
+  try {
+    output.value = JSON.stringify(parseEnv(input.value), null, 2);
+    RMKR.setStatus(document.getElementById('status'), 'Converted to JSON.', 'ok');
+  } catch (e) { RMKR.setStatus(document.getElementById('status'), e.message, 'err'); }
+};
+document.getElementById('toEnv').onclick = () => {
+  try {
+    const obj = JSON.parse(input.value);
+    if (!obj || Array.isArray(obj) || typeof obj !== 'object') throw new Error('JSON must be an object of keys.');
+    output.value = toEnv(obj);
+    RMKR.setStatus(document.getElementById('status'), 'Converted to .env.', 'ok');
+  } catch (e) { RMKR.setStatus(document.getElementById('status'), e.message, 'err'); }
+};
+document.getElementById('copyOut').onclick = () => {
+  if (!output.value) return RMKR.setStatus(document.getElementById('status'), 'Nothing to copy.', 'err');
+  RMKR.copy(output.value).then(() => RMKR.setStatus(document.getElementById('status'), 'Copied.', 'ok'));
+};
+
+</script>
+</body>
+</html>

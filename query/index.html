@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Query ↔ JSON | RMKR Toolkit</title>
+  <meta name="description" content="Parse and build URL query strings.">
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/site.css">
+  
+  <script src="../assets/site.js" defer></script>
+</head>
+<body data-root="../" data-tool="query">
+<main class="wrap page-main" id="main">
+  <h1 class="page-title">Query ↔ JSON</h1>
+  <p class="page-lead">Accepts a full URL or a raw query. Repeated keys become arrays.</p>
+
+  <div class="toolbar">
+    <button class="btn btn-gold" type="button" id="toJson">Query → JSON</button>
+    <button class="btn btn-ghost" type="button" id="toQuery">JSON → Query</button>
+    <button class="btn btn-ghost" type="button" id="copyOut">Copy output</button>
+  </div>
+  <p class="status" id="status" role="status"></p>
+  <div class="pane-grid">
+    <div>
+      <label for="input">Input</label>
+      <textarea id="input" spellcheck="false">https://example.com/search?q=toolkit&page=2&tag=js&tag=html</textarea>
+    </div>
+    <div>
+      <label for="output">Output</label>
+      <textarea id="output" spellcheck="false" readonly></textarea>
+    </div>
+  </div>
+
+</main>
+<script>
+
+function parseQuery(text) {
+  let q = text.trim();
+  try {
+    if (/^https?:/i.test(q)) q = new URL(q).search.slice(1);
+  } catch (e) { /* treat as raw */ }
+  if (q.startsWith('?')) q = q.slice(1);
+  const params = new URLSearchParams(q);
+  const out = {};
+  params.forEach((v,k) => {
+    if (out[k] === undefined) out[k] = v;
+    else out[k] = Array.isArray(out[k]) ? out[k].concat(v) : [out[k], v];
+  });
+  return out;
+}
+function toQuery(obj) {
+  const p = new URLSearchParams();
+  Object.entries(obj).forEach(([k,v]) => {
+    if (Array.isArray(v)) v.forEach(item => p.append(k, String(item)));
+    else if (v != null) p.append(k, String(v));
+  });
+  return p.toString();
+}
+const input = document.getElementById('input');
+const output = document.getElementById('output');
+document.getElementById('toJson').onclick = () => {
+  try { output.value = JSON.stringify(parseQuery(input.value), null, 2); RMKR.setStatus(document.getElementById('status'), 'Parsed.', 'ok'); }
+  catch (e) { RMKR.setStatus(document.getElementById('status'), e.message, 'err'); }
+};
+document.getElementById('toQuery').onclick = () => {
+  try {
+    const obj = JSON.parse(input.value);
+    output.value = toQuery(obj);
+    RMKR.setStatus(document.getElementById('status'), 'Built query string.', 'ok');
+  } catch (e) { RMKR.setStatus(document.getElementById('status'), e.message, 'err'); }
+};
+document.getElementById('copyOut').onclick = () => {
+  if (!output.value) return RMKR.setStatus(document.getElementById('status'), 'Nothing to copy.', 'err');
+  RMKR.copy(output.value).then(() => RMKR.setStatus(document.getElementById('status'), 'Copied.', 'ok'));
+};
+
+</script>
+</body>
+</html>

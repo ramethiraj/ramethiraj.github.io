@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR Code | RMKR Toolkit</title>
+  <meta name="description" content="Generate a QR code from text.">
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/site.css">
+  <script src="../assets/vendor/qrcode.js"></script>
+  <script src="../assets/site.js" defer></script>
+</head>
+<body data-root="../" data-tool="qr">
+<main class="wrap page-main" id="main">
+  <h1 class="page-title">QR Code</h1>
+  <p class="page-lead">Rendered on a canvas in this browser. Download a PNG when you need it.</p>
+
+  <label for="text">Text or URL</label>
+  <textarea id="text" spellcheck="false" style="min-height:110px;">https://rmkr-dev.github.io</textarea>
+  <div class="toolbar">
+    <label for="ecc" style="margin:0;">Error correction</label>
+    <select id="ecc" style="width:auto;">
+      <option value="L">L</option>
+      <option value="M" selected>M</option>
+      <option value="Q">Q</option>
+      <option value="H">H</option>
+    </select>
+    <button class="btn btn-gold" type="button" id="run">Generate</button>
+    <button class="btn btn-ghost" type="button" id="dl">Download PNG</button>
+  </div>
+  <p class="status" id="status" role="status"></p>
+  <div class="card" style="display:flex;justify-content:center;background:#fff;">
+    <canvas id="canvas" width="256" height="256" aria-label="QR code"></canvas>
+  </div>
+
+</main>
+<script>
+
+function generate() {
+  const text = document.getElementById('text').value;
+  if (!text.trim()) {
+    RMKR.setStatus(document.getElementById('status'), 'Enter text first.', 'err');
+    return;
+  }
+  try {
+    const qr = qrcode(0, document.getElementById('ecc').value);
+    qr.addData(text);
+    qr.make();
+    const count = qr.getModuleCount();
+    const canvas = document.getElementById('canvas');
+    const scale = Math.max(2, Math.floor(280 / count));
+    canvas.width = canvas.height = count * scale;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle = '#000000';
+    for (let r=0;r<count;r++) for (let c=0;c<count;c++) {
+      if (qr.isDark(r,c)) ctx.fillRect(c*scale, r*scale, scale, scale);
+    }
+    RMKR.setStatus(document.getElementById('status'), 'QR ready (' + count + '×' + count + ').', 'ok');
+  } catch (e) {
+    RMKR.setStatus(document.getElementById('status'), e.message || 'Could not build QR. Try a shorter string or lower ECC.', 'err');
+  }
+}
+document.getElementById('run').onclick = generate;
+document.getElementById('text').addEventListener('input', generate);
+document.getElementById('ecc').addEventListener('change', generate);
+document.getElementById('dl').onclick = () => {
+  const a = document.createElement('a');
+  a.href = document.getElementById('canvas').toDataURL('image/png');
+  a.download = 'qr.png';
+  a.click();
+};
+generate();
+
+</script>
+</body>
+</html>

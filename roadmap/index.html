@@ -1,47 +1,110 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Roadmap Planner | RMKR Dev</title>
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath fill='%23FFC300' d='M256 0a256 256 0 1 1 0 512A256 256 0 1 1 256 0z'/%3E%3C/svg%3E">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        :root { --color-bg: #0C1524; --color-card: #18233C; --color-accent: #FFC300; --color-line: #2D3748; }
-        body { font-family: 'Inter', sans-serif; background: var(--color-bg); color: #F0F4F8; }
-        .roadmap-container { display: flex; overflow-x: auto; padding-bottom: 20px; gap: 4px; }
-        .quarter { min-width: 250px; background: var(--color-card); border: 1px solid var(--color-line); border-radius: 12px; padding: 1rem; }
-        .item { background: #080E1A; border-left: 3px solid var(--color-accent); padding: 10px; border-radius: 4px; margin-top: 10px; font-size: 0.75rem; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Roadmap Planner | RMKR Toolkit</title>
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/site.css">
+  <script src="../assets/site.js" defer></script>
+  <style>
+    .roadmap { display: grid; grid-template-columns: repeat(4, minmax(180px, 1fr)); gap: 0.75rem; }
+    .quarter { background: var(--color-card); border: 1px solid var(--color-line); border-radius: 12px; padding: 1rem; min-height: 220px; }
+    .item { background: var(--color-input); border-left: 3px solid var(--color-accent); padding: 0.65rem 0.7rem; border-radius: 6px; margin-top: 0.55rem; font-size: 0.8rem; display: flex; justify-content: space-between; gap: 0.5rem; }
+    .item button { background: none; border: 0; color: var(--color-error); cursor: pointer; font-weight: 700; }
+    @media (max-width: 800px) { .roadmap { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 520px) { .roadmap { grid-template-columns: 1fr; } }
+  </style>
 </head>
-<body class="p-8">
-    <div class="max-w-6xl mx-auto">
-        <header class="flex justify-between items-center mb-8 border-b border-[--color-line] pb-4">
-            <h1 class="text-2xl font-black italic uppercase">Architecture<span class="text-[--color-accent] not-italic ml-2">Roadmap</span></h1>
-            <a href="../" class="text-xs font-bold text-[--color-accent] hover:underline">Back to Hub</a>
-        </header>
-
-        <div class="roadmap-container">
-            <div class="quarter">
-                <h3 class="font-black text-[--color-accent] text-xs uppercase border-b border-[--color-line] pb-2">Q1 2026</h3>
-                <div class="item">Foundation & API Gateway Migration</div>
-                <div class="item">Auth Service Consolidation</div>
-            </div>
-            <div class="quarter">
-                <h3 class="font-black text-[--color-accent] text-xs uppercase border-b border-[--color-line] pb-2">Q2 2026</h3>
-                <div class="item">Data Lakehouse Integration</div>
-                <div class="item">Observability Mesh Rollout</div>
-            </div>
-            <div class="quarter">
-                <h3 class="font-black text-[--color-accent] text-xs uppercase border-b border-[--color-line] pb-2">Q3 2026</h3>
-                <div class="item">Multi-Region Failover Tests</div>
-            </div>
-            <div class="quarter">
-                <h3 class="font-black text-[--color-accent] text-xs uppercase border-b border-[--color-line] pb-2">Q4 2026</h3>
-                <div class="item">Global Edge Deployment</div>
-            </div>
-        </div>
-        <p class="mt-8 text-[10px] text-[--color-muted] font-bold uppercase italic">Note: Static template. Visualizing strategic architectural direction.</p>
-    </div>
+<body data-root="../" data-tool="roadmap">
+<main class="wrap wrap-wide page-main" id="main">
+  <h1 class="page-title">Roadmap Planner</h1>
+  <p class="page-lead">A local quarter board. Items stay in this browser until you clear them.</p>
+  <div class="toolbar">
+    <select id="quarter" style="width:auto;">
+      <option value="0">Q1</option>
+      <option value="1">Q2</option>
+      <option value="2">Q3</option>
+      <option value="3">Q4</option>
+    </select>
+    <input id="text" type="text" placeholder="Initiative name" style="max-width:280px;">
+    <button class="btn btn-gold" type="button" id="add">Add</button>
+    <button class="btn btn-danger" type="button" id="reset">Reset sample</button>
+  </div>
+  <p class="status" id="status" role="status"></p>
+  <div class="roadmap" id="board"></div>
+</main>
+<script>
+  const KEY = 'rmkr-roadmap';
+  const YEAR = new Date().getFullYear();
+  const SAMPLE = [
+    ['Foundation work', 'Auth consolidation'],
+    ['Data platform integration', 'Observability rollout'],
+    ['Failover tests'],
+    ['Edge deployment']
+  ];
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return SAMPLE.map(q => q.slice());
+  }
+  function save(data) {
+    localStorage.setItem(KEY, JSON.stringify(data));
+  }
+  function render() {
+    const data = load();
+    const board = document.getElementById('board');
+    board.innerHTML = '';
+    data.forEach((items, qi) => {
+      const col = document.createElement('section');
+      col.className = 'quarter';
+      col.innerHTML = '<h2 class="label">Q' + (qi + 1) + ' ' + YEAR + '</h2>';
+      items.forEach((text, ii) => {
+        const row = document.createElement('div');
+        row.className = 'item';
+        const span = document.createElement('span');
+        span.textContent = text;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.setAttribute('aria-label', 'Remove');
+        btn.textContent = '×';
+        btn.onclick = () => {
+          const next = load();
+          next[qi].splice(ii, 1);
+          save(next);
+          render();
+        };
+        row.appendChild(span);
+        row.appendChild(btn);
+        col.appendChild(row);
+      });
+      board.appendChild(col);
+    });
+  }
+  document.getElementById('add').onclick = () => {
+    const text = document.getElementById('text').value.trim();
+    if (!text) {
+      RMKR.setStatus(document.getElementById('status'), 'Enter an item first.', 'err');
+      return;
+    }
+    const qi = parseInt(document.getElementById('quarter').value, 10);
+    const data = load();
+    data[qi].push(text);
+    save(data);
+    document.getElementById('text').value = '';
+    RMKR.setStatus(document.getElementById('status'), 'Added to Q' + (qi + 1) + '.', 'ok');
+    render();
+  };
+  document.getElementById('reset').onclick = () => {
+    save(SAMPLE.map(q => q.slice()));
+    RMKR.setStatus(document.getElementById('status'), 'Sample board restored.', 'ok');
+    render();
+  };
+  render();
+</script>
 </body>
 </html>

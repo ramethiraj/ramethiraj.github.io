@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UUID Generator | RMKR Toolkit</title>
+  <meta name="description" content="Generate UUID v4 values in the browser.">
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/site.css">
+  
+  <script src="../assets/site.js" defer></script>
+</head>
+<body data-root="../" data-tool="uuid">
+<main class="wrap page-main" id="main">
+  <h1 class="page-title">UUID Generator</h1>
+  <p class="page-lead">Uses the browser CSPRNG. Generate one or many, then copy the list.</p>
+
+  <div class="toolbar">
+    <label for="count" style="margin:0;">Count</label>
+    <input id="count" type="number" min="1" max="500" value="5" style="width:5rem;">
+    <label class="muted" style="margin:0;text-transform:none;letter-spacing:0;font-weight:600;">
+      <input type="checkbox" id="upper"> Uppercase
+    </label>
+    <button class="btn btn-gold" type="button" id="run">Generate</button>
+    <button class="btn btn-ghost" type="button" id="copyOut">Copy</button>
+  </div>
+  <p class="status" id="status" role="status"></p>
+  <label for="output">UUIDs</label>
+  <textarea id="output" spellcheck="false" readonly></textarea>
+
+</main>
+<script>
+
+function uuid() {
+  if (crypto.randomUUID) return crypto.randomUUID();
+  const b = new Uint8Array(16);
+  crypto.getRandomValues(b);
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  const h = [...b].map(x => x.toString(16).padStart(2, '0')).join('');
+  return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);
+}
+function generate() {
+  let n = parseInt(document.getElementById('count').value, 10);
+  if (!Number.isFinite(n) || n < 1) n = 1;
+  n = Math.min(500, n);
+  const upper = document.getElementById('upper').checked;
+  const list = Array.from({length: n}, () => {
+    const v = uuid();
+    return upper ? v.toUpperCase() : v;
+  });
+  document.getElementById('output').value = list.join('\n');
+  RMKR.setStatus(document.getElementById('status'), n + ' UUID' + (n===1?'':'s') + ' generated.', 'ok');
+}
+document.getElementById('run').onclick = generate;
+document.getElementById('copyOut').onclick = () => {
+  const v = document.getElementById('output').value;
+  if (!v) return RMKR.setStatus(document.getElementById('status'), 'Generate first.', 'err');
+  RMKR.copy(v).then(() => RMKR.setStatus(document.getElementById('status'), 'Copied.', 'ok'));
+};
+generate();
+
+</script>
+</body>
+</html>

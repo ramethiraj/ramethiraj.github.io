@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <script>fetch('https://api.countapi.xyz/hit/rmkr-dev.github.io/draw');</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Architect Draw | RMKR Dev</title>
+    <title>Architect Draw | RMKR Toolkit</title>
+    <link rel="stylesheet" href="../assets/site.css">
+    <script src="../assets/site.js" defer></script>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -64,7 +65,7 @@
         .btn-gold { background: var(--color-accent); color: var(--color-bg); padding: 8px 16px; border-radius: 8px; font-weight: bold; font-size: 0.8rem; }
     </style>
 </head>
-<body>
+<body data-root="../" data-tool="draw">
 
 <div class="wrap">
     <header class="flex justify-between items-center mb-6 border-b border-[--color-line] pb-4">
@@ -72,7 +73,7 @@
             <h1 class="text-2xl font-bold tracking-tighteritalic">ARCHITECT<span class="text-[--color-accent] not-italic">DRAW</span></h1>
             <p class="text-xs text-[--color-muted] font-bold uppercase tracking-widest mt-1">Client-side Whiteboard</p>
         </div>
-        <a href="../" class="bg-[--color-card] p-3 rounded-xl border border-[--color-line] hover:border-[--color-accent] transition">
+        <a href="../index.html" class="bg-[--color-card] p-3 rounded-xl border border-[--color-line] hover:border-[--color-accent] transition" aria-label="Home">
             <i class="fa-solid fa-house-user"></i>
         </a>
     </header>

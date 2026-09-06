@@ -1,48 +1,73 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Mock Gen | RMKR Dev</title>
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath fill='%23FFC300' d='M448 96c0-35.3-28.7-64-64-64H128C92.7 32 64 60.7 64 96v320c0 35.3 28.7 64 64 64h256c35.3 0 64-28.7 64-64V96z'/%3E%3C/svg%3E">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        :root { --color-bg: #0C1524; --color-card: #18233C; --color-accent: #FFC300; --color-line: #2D3748; }
-        body { font-family: 'Inter', sans-serif; background: var(--color-bg); color: #F0F4F8; }
-        textarea { font-family: 'Fira Code', monospace; background: #080E1A; border: 1px solid var(--color-line); color: #4ade80; resize: none; width: 100%; padding: 1rem; border-radius: 12px; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mock Generator | RMKR Toolkit</title>
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/site.css">
+  <script src="../assets/site.js" defer></script>
 </head>
-<body class="p-8">
-    <div class="max-w-4xl mx-auto">
-        <header class="flex justify-between items-center mb-8 border-b border-[--color-line] pb-4">
-            <h1 class="text-2xl font-black italic">MOCK<span class="text-[--color-accent] not-italic">GEN</span></h1>
-            <a href="../" class="text-xs font-bold text-[--color-accent] hover:underline uppercase">Back to Hub</a>
-        </header>
-
-        <div class="mb-6">
-            <label class="text-[10px] font-bold uppercase text-[--color-muted] mb-2 block">Comma separated keys for Mock Object</label>
-            <input id="keys" type="text" value="id, name, email, status, timestamp" class="w-full bg-[#080E1A] border border-[--color-line] p-3 rounded-lg text-white mb-4 outline-none focus:border-[--color-accent]">
-            <button onclick="generate()" class="bg-[--color-accent] text-black font-black px-6 py-2 rounded-lg text-xs uppercase">Generate 10 Records</button>
-        </div>
-
-        <textarea id="output" class="h-96 text-xs" readonly></textarea>
-    </div>
-
-    <script>
-        function generate() {
-            const keys = document.getElementById('keys').value.split(',').map(k => k.trim());
-            const data = [];
-            for (let i = 1; i <= 10; i++) {
-                const obj = {};
-                keys.forEach(k => {
-                    if (k === 'id') obj[k] = i;
-                    else if (k.includes('email')) obj[k] = `user${i}@example.com`;
-                    else if (k.includes('timestamp')) obj[k] = new Date().toISOString();
-                    else obj[k] = `mock_${k}_${Math.floor(Math.random() * 1000)}`;
-                });
-                data.push(obj);
-            }
-            document.getElementById('output').value = JSON.stringify(data, null, 4);
-        }
-    </script>
+<body data-root="../" data-tool="mock">
+<main class="wrap page-main" id="main">
+  <h1 class="page-title">Mock Generator</h1>
+  <p class="page-lead">Build sample JSON from field names. Names that look like id, email, or timestamp get matching fake values.</p>
+  <label for="keys">Fields</label>
+  <input id="keys" type="text" value="id, name, email, status, timestamp">
+  <div class="toolbar">
+    <label for="count" style="margin:0;">Records</label>
+    <input id="count" type="number" min="1" max="200" value="10" style="width:5rem;">
+    <button class="btn btn-gold" type="button" id="run">Generate</button>
+    <button class="btn btn-ghost" type="button" id="copyOut">Copy</button>
+  </div>
+  <p class="status" id="status" role="status"></p>
+  <textarea id="output" readonly spellcheck="false" style="min-height:320px;"></textarea>
+</main>
+<script>
+  function uuid() {
+    if (crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+      const r = Math.random()*16|0;
+      return (c === 'x' ? r : (r&0x3|0x8)).toString(16);
+    });
+  }
+  function valueFor(key, i) {
+    const k = key.toLowerCase();
+    if (k === 'id' || k.endsWith('id')) return k.includes('uuid') ? uuid() : i;
+    if (k.includes('email')) return 'user' + i + '@example.com';
+    if (k.includes('uuid')) return uuid();
+    if (k.includes('time') || k.includes('date')) return new Date(Date.now() - i * 3600000).toISOString();
+    if (k.includes('status')) return ['active','pending','closed'][i % 3];
+    if (k.includes('name')) return ['Ada Lovelace','Grace Hopper','Linus Torvalds','Barbara Liskov'][i % 4];
+    if (k.includes('bool') || k.startsWith('is') || k.startsWith('has')) return i % 2 === 0;
+    if (k.includes('count') || k.includes('amount') || k.includes('qty')) return (i * 7) % 50;
+    return 'mock_' + key + '_' + (100 + i);
+  }
+  function generate() {
+    const keys = document.getElementById('keys').value.split(',').map(s => s.trim()).filter(Boolean);
+    if (!keys.length) {
+      RMKR.setStatus(document.getElementById('status'), 'Add at least one field name.', 'err');
+      return;
+    }
+    let n = parseInt(document.getElementById('count').value, 10) || 10;
+    n = Math.min(200, Math.max(1, n));
+    const data = Array.from({length: n}, (_, i) => {
+      const obj = {};
+      keys.forEach(k => { obj[k] = valueFor(k, i + 1); });
+      return obj;
+    });
+    document.getElementById('output').value = JSON.stringify(data, null, 2);
+    RMKR.setStatus(document.getElementById('status'), n + ' records ready.', 'ok');
+  }
+  document.getElementById('run').onclick = generate;
+  document.getElementById('copyOut').onclick = () => {
+    const v = document.getElementById('output').value;
+    if (!v) return RMKR.setStatus(document.getElementById('status'), 'Generate first.', 'err');
+    RMKR.copy(v).then(() => RMKR.setStatus(document.getElementById('status'), 'Copied.', 'ok'));
+  };
+  generate();
+</script>
 </body>
 </html>

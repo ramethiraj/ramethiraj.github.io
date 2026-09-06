@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hash Lab | RMKR Toolkit</title>
+  <meta name="description" content="SHA-256, SHA-1, and MD5 hashes in the browser.">
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/site.css">
+  <script src="../assets/vendor/md5.js"></script>
+  <script src="../assets/site.js" defer></script>
+</head>
+<body data-root="../" data-tool="hash">
+<main class="wrap page-main" id="main">
+  <h1 class="page-title">Hash Lab</h1>
+  <p class="page-lead">Hash text or a local file. MD5 is included for checksums of older systems; prefer SHA-256 for new work.</p>
+
+  <div class="toolbar">
+    <button class="btn btn-gold" type="button" id="run">Hash text</button>
+    <label class="btn btn-ghost" style="margin:0;cursor:pointer;">
+      Hash file
+      <input type="file" id="file" class="sr-only">
+    </label>
+    <button class="btn btn-ghost" type="button" id="copyOut">Copy SHA-256</button>
+  </div>
+  <p class="status" id="status" role="status"></p>
+  <label for="input">Text</label>
+  <textarea id="input" spellcheck="false" placeholder="Type or paste text">RMKR Toolkit</textarea>
+  <div class="card" style="margin-top:1rem;">
+    <dl class="kvs" id="out">
+      <dt>SHA-256</dt><dd class="mono" id="sha256">—</dd>
+      <dt>SHA-1</dt><dd class="mono" id="sha1">—</dd>
+      <dt>MD5</dt><dd class="mono" id="md5out">—</dd>
+      <dt>Bytes</dt><dd class="mono" id="bytes">—</dd>
+    </dl>
+  </div>
+
+</main>
+<script>
+
+async function digest(algo, buf) {
+  if (!crypto.subtle) throw new Error('Web Crypto is not available in this context.');
+  const hash = await crypto.subtle.digest(algo, buf);
+  return RMKR.bytesToHex(hash);
+}
+async function hashBytes(buf) {
+  const text = new TextDecoder().decode(buf);
+  document.getElementById('sha256').textContent = await digest('SHA-256', buf);
+  document.getElementById('sha1').textContent = await digest('SHA-1', buf);
+  document.getElementById('md5out').textContent = (typeof md5 === 'function') ? md5(text) : 'unavailable';
+  document.getElementById('bytes').textContent = String(buf.byteLength);
+  RMKR.setStatus(document.getElementById('status'), 'Hashed locally.', 'ok');
+}
+document.getElementById('run').onclick = async () => {
+  try { await hashBytes(RMKR.utf8Bytes(document.getElementById('input').value)); }
+  catch (e) { RMKR.setStatus(document.getElementById('status'), e.message, 'err'); }
+};
+document.getElementById('file').onchange = async (e) => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  try {
+    const buf = await f.arrayBuffer();
+    document.getElementById('input').value = 'File: ' + f.name + ' (' + f.size + ' bytes)';
+    const sha = await digest('SHA-256', buf);
+    const sha1 = await digest('SHA-1', buf);
+    document.getElementById('sha256').textContent = sha;
+    document.getElementById('sha1').textContent = sha1;
+    document.getElementById('md5out').textContent = 'Use text mode for MD5 (file MD5 skipped for large binaries).';
+    document.getElementById('bytes').textContent = String(buf.byteLength);
+    RMKR.setStatus(document.getElementById('status'), 'Hashed file: ' + f.name, 'ok');
+  } catch (err) { RMKR.setStatus(document.getElementById('status'), err.message, 'err'); }
+};
+document.getElementById('copyOut').onclick = () => {
+  const v = document.getElementById('sha256').textContent;
+  if (!v || v === '—') return RMKR.setStatus(document.getElementById('status'), 'Hash something first.', 'err');
+  RMKR.copy(v).then(() => RMKR.setStatus(document.getElementById('status'), 'SHA-256 copied.', 'ok'));
+};
+
+</script>
+</body>
+</html>

@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <script>fetch('https://api.countapi.xyz/hit/rmkr-dev.github.io/md');</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Markdown Viewer | RMKR Dev</title>
+    <title>Markdown Viewer | RMKR Toolkit</title>
+    <link rel="stylesheet" href="../assets/site.css">
+    <script src="../assets/site.js" defer></script>
 
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath fill='%23FFC300' d='M0 64C0 28.7 28.7 0 64 0H224V128c0 17.7 14.3 32 32 32H384V288H216c-13.3 0-24 10.7-24 24s10.7 24 24 24H384V448c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V64zm384 64H256V0L384 128z'/%3E%3C/svg%3E">
@@ -159,7 +160,7 @@
         }
     </style>
 </head>
-<body>
+<body data-root="../" data-tool="md">
 
     <header class="top">
         <div class="wrap flex justify-between items-center">
@@ -167,8 +168,8 @@
                 <i class="fa-solid fa-file-code text-2xl" style="color: var(--color-accent);"></i>
                 <h2 class="text-xl font-bold tracking-tight">RMKR <span style="color: var(--color-accent);">MD</span></h2>
             </div>
-            <a href="../" class="btn-outline cta-button text-sm">
-                <i class="fa-solid fa-arrow-left"></i> Hub
+            <a href="../index.html" class="btn-outline cta-button text-sm">
+                <i class="fa-solid fa-arrow-left"></i> Home
             </a>
         </div>
     </header>
