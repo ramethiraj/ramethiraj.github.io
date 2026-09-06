@@ -73,7 +73,7 @@
       '<header class="site-header">' +
         '<div class="site-header-inner">' +
           '<a class="brand" href="' + prefix + 'index.html">' + iconSvg() +
-            '<span class="brand-name">Ramkumar's <span>Toolkit</span></span></a>' +
+            '<span class=\"brand-name\">Ramkumar\'s <span>Toolkit</span></span></a>' +
           '<nav class="site-nav" aria-label="Primary">' +
             '<a class="nav-link" href="' + prefix + 'index.html">Home</a>' +
             '<details class="nav-menu">' +
