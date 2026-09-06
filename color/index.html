@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Color Converter | RMKR Toolkit</title>
+  <meta name="description" content="Convert hex, RGB, and HSL colors.">
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/site.css">
+  
+  <script src="../assets/site.js" defer></script>
+</head>
+<body data-root="../" data-tool="color">
+<main class="wrap page-main" id="main">
+  <h1 class="page-title">Color Converter</h1>
+  <p class="page-lead">Type any common CSS color form. The swatch and the other formats update together.</p>
+
+  <div class="pane-grid">
+    <div class="card">
+      <label for="hex">Hex</label>
+      <input id="hex" type="text" value="#FFC300" spellcheck="false">
+      <label for="rgb" style="margin-top:0.8rem;">RGB</label>
+      <input id="rgb" type="text" value="rgb(255, 195, 0)" spellcheck="false">
+      <label for="hsl" style="margin-top:0.8rem;">HSL</label>
+      <input id="hsl" type="text" value="hsl(46, 100%, 50%)" spellcheck="false">
+      <label for="picker" style="margin-top:0.8rem;">Picker</label>
+      <input id="picker" type="color" value="#ffc300" style="height:48px;padding:0;border:0;background:transparent;">
+      <p class="status" id="status" role="status"></p>
+    </div>
+    <div class="card">
+      <div class="swatch" id="swatch" style="background:#FFC300"></div>
+      <dl class="kvs" style="margin-top:1rem;">
+        <dt>Contrast on dark</dt><dd id="cd">—</dd>
+        <dt>Contrast on light</dt><dd id="cl">—</dd>
+      </dl>
+    </div>
+  </div>
+
+</main>
+<script>
+
+function clamp(n, a, b) { return Math.min(b, Math.max(a, n)); }
+function hexToRgb(hex) {
+  let h = hex.trim().replace(/^#/, '');
+  if (h.length === 3) h = h.split('').map(c => c+c).join('');
+  if (!/^[0-9a-fA-F]{6}$/.test(h)) throw new Error('Use a 3 or 6 digit hex color.');
+  return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+}
+function rgbToHex(r,g,b) {
+  return '#' + [r,g,b].map(n => clamp(Math.round(n),0,255).toString(16).padStart(2,'0')).join('').toUpperCase();
+}
+function rgbToHsl(r,g,b) {
+  r/=255; g/=255; b/=255;
+  const max=Math.max(r,g,b), min=Math.min(r,g,b);
+  let h=0,s=0,l=(max+min)/2;
+  if (max !== min) {
+    const d = max-min;
+    s = l > 0.5 ? d/(2-max-min) : d/(max+min);
+    if (max===r) h=(g-b)/d + (g<b?6:0);
+    else if (max===g) h=(b-r)/d + 2;
+    else h=(r-g)/d + 4;
+    h *= 60;
+  }
+  return [Math.round(h), Math.round(s*100), Math.round(l*100)];
+}
+function hslToRgb(h,s,l) {
+  h = ((h % 360)+360)%360; s/=100; l/=100;
+  const c=(1-Math.abs(2*l-1))*s, x=c*(1-Math.abs((h/60)%2-1)), m=l-c/2;
+  let r=0,g=0,b=0;
+  if (h<60){r=c;g=x;} else if (h<120){r=x;g=c;} else if (h<180){g=c;b=x;}
+  else if (h<240){g=x;b=c;} else if (h<300){r=x;b=c;} else {r=c;b=x;}
+  return [Math.round((r+m)*255), Math.round((g+m)*255), Math.round((b+m)*255)];
+}
+function parseRgb(s) {
+  const m = s.match(/rgba?\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)/i);
+  if (!m) throw new Error('Use rgb(r, g, b).');
+  return [+m[1], +m[2], +m[3]];
+}
+function parseHsl(s) {
+  const m = s.match(/hsla?\(\s*([0-9.]+)\s*,\s*([0-9.]+)%\s*,\s*([0-9.]+)%/i);
+  if (!m) throw new Error('Use hsl(h, s%, l%).');
+  return [+m[1], +m[2], +m[3]];
+}
+function lum(r,g,b) {
+  const f = v => { v/=255; return v<=0.03928 ? v/12.92 : Math.pow((v+0.055)/1.055, 2.4); };
+  return 0.2126*f(r)+0.7152*f(g)+0.0722*f(b);
+}
+function contrast(rgb, other) {
+  const L1 = lum(...rgb), L2 = lum(...other);
+  const hi = Math.max(L1,L2), lo = Math.min(L1,L2);
+  return ((hi+0.05)/(lo+0.05)).toFixed(2) + ':1';
+}
+function apply(r,g,b, origin) {
+  const hex = rgbToHex(r,g,b);
+  const [h,s,l] = rgbToHsl(r,g,b);
+  if (origin !== 'hex') document.getElementById('hex').value = hex;
+  if (origin !== 'rgb') document.getElementById('rgb').value = 'rgb('+[r,g,b].map(n=>clamp(Math.round(n),0,255)).join(', ')+')';
+  if (origin !== 'hsl') document.getElementById('hsl').value = 'hsl('+h+', '+s+'%, '+l+'%)';
+  if (origin !== 'picker') document.getElementById('picker').value = hex.toLowerCase();
+  document.getElementById('swatch').style.background = hex;
+  document.getElementById('cd').textContent = contrast([r,g,b], [12,21,36]);
+  document.getElementById('cl').textContent = contrast([r,g,b], [240,244,248]);
+  RMKR.setStatus(document.getElementById('status'), 'Updated.', 'ok');
+}
+document.getElementById('hex').addEventListener('change', () => {
+  try { apply(...hexToRgb(document.getElementById('hex').value), 'hex'); }
+  catch(e){ RMKR.setStatus(document.getElementById('status'), e.message, 'err'); }
+});
+document.getElementById('rgb').addEventListener('change', () => {
+  try { apply(...parseRgb(document.getElementById('rgb').value), 'rgb'); }
+  catch(e){ RMKR.setStatus(document.getElementById('status'), e.message, 'err'); }
+});
+document.getElementById('hsl').addEventListener('change', () => {
+  try { apply(...hslToRgb(...parseHsl(document.getElementById('hsl').value)), 'hsl'); }
+  catch(e){ RMKR.setStatus(document.getElementById('status'), e.message, 'err'); }
+});
+document.getElementById('picker').addEventListener('input', () => {
+  apply(...hexToRgb(document.getElementById('picker').value), 'picker');
+});
+apply(255,195,0,'picker');
+
+</script>
+</body>
+</html>

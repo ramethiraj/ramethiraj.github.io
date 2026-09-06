@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Regex Tester | RMKR Toolkit</title>
+  <meta name="description" content="Test regular expressions with live matches.">
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/site.css">
+  
+  <script src="../assets/site.js" defer></script>
+</head>
+<body data-root="../" data-tool="regex">
+<main class="wrap page-main" id="main">
+  <h1 class="page-title">Regex Tester</h1>
+  <p class="page-lead">Highlight matches, inspect capture groups, and try a replacement. Invalid patterns fail softly.</p>
+
+  <div class="pane-grid">
+    <div>
+      <label for="pattern">Pattern</label>
+      <input id="pattern" type="text" value="\b([A-Z][a-z]+)\b" spellcheck="false">
+    </div>
+    <div>
+      <label for="flags">Flags</label>
+      <input id="flags" type="text" value="g" maxlength="8" spellcheck="false">
+    </div>
+  </div>
+  <label for="sample">Test string</label>
+  <textarea id="sample" spellcheck="false">Hello Toolkit from London and Chennai.</textarea>
+  <label for="repl">Replacement (optional)</label>
+  <input id="repl" type="text" value="[$1]" spellcheck="false">
+  <p class="status" id="status" role="status"></p>
+  <div class="card">
+    <p class="label">Highlights</p>
+    <div class="preview-box" id="hi"></div>
+    <p class="label" style="margin-top:1rem;">Groups</p>
+    <pre class="out" id="groups">—</pre>
+    <p class="label" style="margin-top:1rem;">Replace result</p>
+    <pre class="out" id="replaced">—</pre>
+  </div>
+
+</main>
+<script>
+
+function run() {
+  const pattern = document.getElementById('pattern').value;
+  const flags = document.getElementById('flags').value;
+  const sample = document.getElementById('sample').value;
+  const repl = document.getElementById('repl').value;
+  const hi = document.getElementById('hi');
+  const groups = document.getElementById('groups');
+  try {
+    const re = new RegExp(pattern, flags);
+    const matches = [];
+    if (re.global) {
+      let m; const seen = new Set();
+      while ((m = re.exec(sample)) !== null) {
+        if (m[0] === '' && re.lastIndex === m.index) { re.lastIndex++; continue; }
+        const key = m.index + ':' + m[0];
+        if (seen.has(key)) break;
+        seen.add(key);
+        matches.push(m);
+        if (matches.length > 400) break;
+      }
+    } else {
+      const m = re.exec(sample);
+      if (m) matches.push(m);
+    }
+    let html = '', cursor = 0;
+    const esc = s => s.replace(/[&<>]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch]));
+    matches.forEach(m => {
+      html += esc(sample.slice(cursor, m.index));
+      html += '<mark class="match-hit">' + esc(m[0]) + '</mark>';
+      cursor = m.index + m[0].length;
+    });
+    html += esc(sample.slice(cursor));
+    hi.innerHTML = html || '<span class="muted">Empty string.</span>';
+    groups.textContent = matches.length
+      ? matches.map((m,i) => '#' + (i+1) + ' @' + m.index + ' => ' + JSON.stringify(m[0]) + (m.length>1 ? ' groups=' + JSON.stringify(m.slice(1)) : '')).join('\n')
+      : 'No matches.';
+    try { document.getElementById('replaced').textContent = sample.replace(new RegExp(pattern, flags), repl); }
+    catch (e) { document.getElementById('replaced').textContent = e.message; }
+    RMKR.setStatus(document.getElementById('status'), matches.length + ' match' + (matches.length===1?'':'es') + '.', 'ok');
+  } catch (e) {
+    hi.textContent = sample;
+    groups.textContent = '—';
+    RMKR.setStatus(document.getElementById('status'), e.message, 'err');
+  }
+}
+['pattern','flags','sample','repl'].forEach(id => {
+  document.getElementById(id).addEventListener('input', run);
+});
+run();
+
+</script>
+</body>
+</html>

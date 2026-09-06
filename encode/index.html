@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Encode / Decode | RMKR Toolkit</title>
+  <meta name="description" content="Base64, URL, and HTML entity conversion.">
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/site.css">
+  
+  <script src="../assets/site.js" defer></script>
+</head>
+<body data-root="../" data-tool="encode">
+<main class="wrap page-main" id="main">
+  <h1 class="page-title">Encode / Decode</h1>
+  <p class="page-lead">UTF-8 safe encode and decode. Nothing leaves this tab.</p>
+
+  <div class="toolbar" role="tablist">
+    <button class="btn btn-gold" type="button" data-mode="b64">Base64</button>
+    <button class="btn btn-ghost" type="button" data-mode="url">URL</button>
+    <button class="btn btn-ghost" type="button" data-mode="html">HTML entities</button>
+  </div>
+  <div class="toolbar">
+    <button class="btn btn-gold" type="button" id="enc">Encode</button>
+    <button class="btn btn-ghost" type="button" id="dec">Decode</button>
+    <button class="btn btn-ghost" type="button" id="swap">Swap</button>
+    <button class="btn btn-ghost" type="button" id="copyOut">Copy output</button>
+  </div>
+  <p class="status" id="status" role="status">Mode: Base64</p>
+  <div class="pane-grid">
+    <div>
+      <label for="input">Input</label>
+      <textarea id="input" spellcheck="false">Hello, toolkit — café</textarea>
+    </div>
+    <div>
+      <label for="output">Output</label>
+      <textarea id="output" spellcheck="false" readonly></textarea>
+    </div>
+  </div>
+
+</main>
+<script>
+
+let mode = 'b64';
+const input = document.getElementById('input');
+const output = document.getElementById('output');
+const status = document.getElementById('status');
+const names = { b64: 'Base64', url: 'URL', html: 'HTML entities' };
+
+document.querySelectorAll('[data-mode]').forEach(btn => {
+  btn.onclick = () => {
+    mode = btn.dataset.mode;
+    document.querySelectorAll('[data-mode]').forEach(b => {
+      b.className = 'btn ' + (b === btn ? 'btn-gold' : 'btn-ghost');
+    });
+    RMKR.setStatus(status, 'Mode: ' + names[mode]);
+  };
+});
+
+function b64encode(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  bytes.forEach(b => bin += String.fromCharCode(b));
+  return btoa(bin);
+}
+function b64decode(str) {
+  const clean = str.replace(/\s+/g, '');
+  const bin = atob(clean);
+  const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+const htmlMap = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+function htmlEncode(s) { return s.replace(/[&<>"']/g, ch => htmlMap[ch]); }
+function htmlDecode(s) {
+  const t = document.createElement('textarea');
+  t.innerHTML = s;
+  return t.value;
+}
+
+document.getElementById('enc').onclick = () => {
+  try {
+    const v = input.value;
+    output.value = mode === 'b64' ? b64encode(v) : mode === 'url' ? encodeURIComponent(v) : htmlEncode(v);
+    RMKR.setStatus(status, 'Encoded (' + names[mode] + ').', 'ok');
+  } catch (e) { RMKR.setStatus(status, e.message, 'err'); }
+};
+document.getElementById('dec').onclick = () => {
+  try {
+    const v = input.value;
+    output.value = mode === 'b64' ? b64decode(v) : mode === 'url' ? decodeURIComponent(v.replace(/\+/g, '%20')) : htmlDecode(v);
+    RMKR.setStatus(status, 'Decoded (' + names[mode] + ').', 'ok');
+  } catch (e) { RMKR.setStatus(status, e.message, 'err'); }
+};
+document.getElementById('swap').onclick = () => {
+  const a = input.value; input.value = output.value; output.value = a;
+};
+document.getElementById('copyOut').onclick = () => {
+  if (!output.value) return RMKR.setStatus(status, 'Nothing to copy.', 'err');
+  RMKR.copy(output.value).then(() => RMKR.setStatus(status, 'Copied.', 'ok'));
+};
+
+</script>
+</body>
+</html>

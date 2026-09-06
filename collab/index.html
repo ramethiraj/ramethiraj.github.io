@@ -1,19 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <script>
-        // Dual-Layer Hit Counter
-        (async () => {
-            const key = 'collab';
-            const ns = 'rmkr-dev-suite';
-            const current = parseInt(localStorage.getItem(`stat-${key}`) || "0");
-            localStorage.setItem(`stat-${key}`, current + 1);
-            try { await fetch(`https://countapi.it/hit/${ns}/${key}`, { mode: 'no-cors' }); } catch (e) {}
-        })();
-    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Collab Pad | RMKR Dev</title>
+    <title>Collab Pad | RMKR Toolkit</title>
+    <link rel="stylesheet" href="../assets/site.css">
+    <script src="../assets/site.js" defer></script>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
@@ -42,7 +34,7 @@
         .status-on { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
     </style>
 </head>
-<body>
+<body data-root="../" data-tool="collab">
 
 <div class="wrap">
     <header class="flex justify-between items-center mb-6">
@@ -56,7 +48,7 @@
         <div class="flex gap-3">
             <input type="text" id="peer-id-input" placeholder="Paste Peer ID to Connect" class="bg-[#080E1A] border border-[--color-line] px-3 py-2 rounded-lg text-xs text-white outline-none focus:border-[--color-accent]">
             <button onclick="connectToPeer()" class="bg-[--color-accent] text-[--color-bg] px-4 py-2 rounded-lg font-bold text-xs uppercase">Connect</button>
-            <a href="../" class="bg-[--color-card] p-2 rounded-lg border border-[--color-line] text-[--color-accent]"><i class="fa-solid fa-house"></i></a>
+            <a href="../index.html" class="bg-[--color-card] p-2 rounded-lg border border-[--color-line] text-[--color-accent]" aria-label="Home"><i class="fa-solid fa-house"></i></a>
         </div>
     </header>
 

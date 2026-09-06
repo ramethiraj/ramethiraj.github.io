@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SQL Formatter | RMKR Toolkit</title>
+  <meta name="description" content="Pretty-print common SQL statements.">
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/site.css">
+  
+  <script src="../assets/site.js" defer></script>
+</head>
+<body data-root="../" data-tool="sql">
+<main class="wrap page-main" id="main">
+  <h1 class="page-title">SQL Formatter</h1>
+  <p class="page-lead">A small local formatter for SELECT, INSERT, UPDATE, and DDL. Not a full parser.</p>
+
+  <div class="toolbar">
+    <button class="btn btn-gold" type="button" id="run">Format</button>
+    <button class="btn btn-ghost" type="button" id="upper">Keywords upper</button>
+    <button class="btn btn-ghost" type="button" id="copyOut">Copy</button>
+  </div>
+  <p class="status" id="status" role="status"></p>
+  <div class="pane-grid">
+    <div>
+      <label for="input">SQL</label>
+      <textarea id="input" spellcheck="false">select u.id, u.name, o.total from users u join orders o on o.user_id=u.id where o.total>10 order by o.total desc limit 20;</textarea>
+    </div>
+    <div>
+      <label for="output">Formatted</label>
+      <textarea id="output" spellcheck="false" readonly></textarea>
+    </div>
+  </div>
+
+</main>
+<script>
+
+const KW = ['select','from','where','and','or','join','left','right','inner','outer','on','group','by','order','having','limit','offset','insert','into','values','update','set','delete','create','table','alter','drop','union','all','as','case','when','then','else','end','with','distinct'];
+function formatSql(sql, upper) {
+  let s = sql.replace(/\s+/g,' ').trim();
+  if (!s) throw new Error('Paste SQL first.');
+  const breaks = ['select','from','where','join','left join','right join','inner join','group by','order by','having','limit','offset','values','set','union'];
+  breaks.sort((a,b)=>b.length-a.length).forEach(k => {
+    const re = new RegExp('\\s'+k.replace(' ','\\s+')+'\\s','ig');
+    s = s.replace(re, '\n' + k.toUpperCase() + ' ');
+  });
+  s = s.replace(/,\s*/g, ',\n  ');
+  if (upper) {
+    const re = new RegExp('\\b('+KW.join('|')+')\\b','ig');
+    s = s.replace(re, m => m.toUpperCase());
+  }
+  return s.replace(/\n{2,}/g,'\n').trim();
+}
+document.getElementById('run').onclick = () => {
+  try {
+    document.getElementById('output').value = formatSql(document.getElementById('input').value, false);
+    RMKR.setStatus(document.getElementById('status'), 'Formatted.', 'ok');
+  } catch (e) { RMKR.setStatus(document.getElementById('status'), e.message, 'err'); }
+};
+document.getElementById('upper').onclick = () => {
+  try {
+    document.getElementById('output').value = formatSql(document.getElementById('input').value, true);
+    RMKR.setStatus(document.getElementById('status'), 'Formatted with uppercase keywords.', 'ok');
+  } catch (e) { RMKR.setStatus(document.getElementById('status'), e.message, 'err'); }
+};
+document.getElementById('copyOut').onclick = () => {
+  const v = document.getElementById('output').value;
+  if (!v) return RMKR.setStatus(document.getElementById('status'), 'Format first.', 'err');
+  RMKR.copy(v).then(() => RMKR.setStatus(document.getElementById('status'), 'Copied.', 'ok'));
+};
+
+</script>
+</body>
+</html>

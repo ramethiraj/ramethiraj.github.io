@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cron Explainer | RMKR Toolkit</title>
+  <meta name="description" content="Explain cron expressions and list upcoming runs.">
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/site.css">
+  
+  <script src="../assets/site.js" defer></script>
+</head>
+<body data-root="../" data-tool="cron">
+<main class="wrap page-main" id="main">
+  <h1 class="page-title">Cron Explainer</h1>
+  <p class="page-lead">Supports 5-field Unix cron plus @hourly, @daily, @weekly, @monthly, and @yearly.</p>
+
+  <label for="expr">Cron expression</label>
+  <input id="expr" type="text" value="*/15 9-17 * * 1-5" spellcheck="false">
+  <div class="toolbar" style="margin-top:0.75rem;">
+    <button class="btn btn-gold" type="button" id="run">Explain</button>
+    <button class="btn btn-ghost" type="button" data-ex="0 0 * * *">Daily midnight</button>
+    <button class="btn btn-ghost" type="button" data-ex="30 8 * * 1-5">Weekday 08:30</button>
+    <button class="btn btn-ghost" type="button" data-ex="@hourly">@hourly</button>
+  </div>
+  <p class="status" id="status" role="status"></p>
+  <div class="card">
+    <p id="human" class="page-lead" style="margin-bottom:0.75rem;">—</p>
+    <label>Next 8 local runs</label>
+    <pre class="out" id="next">—</pre>
+  </div>
+
+</main>
+<script>
+
+const MACROS = { '@yearly':'0 0 1 1 *', '@annually':'0 0 1 1 *', '@monthly':'0 0 1 * *', '@weekly':'0 0 * * 0', '@daily':'0 0 * * *', '@midnight':'0 0 * * *', '@hourly':'0 * * * *' };
+function parseField(field, min, max, names) {
+  if (field === '*') return { any:true, values:null };
+  const out = new Set();
+  field.split(',').forEach(part => {
+    let step = 1, range = part;
+    if (part.includes('/')) { const [a,b] = part.split('/'); range = a; step = parseInt(b,10); }
+    if (range === '*') { for (let i=min;i<=max;i+=step) out.add(i); return; }
+    const map = names || {};
+    const norm = v => {
+      const key = String(v).toLowerCase();
+      if (map[key] != null) return map[key];
+      const n = parseInt(v,10);
+      if (!Number.isFinite(n)) throw new Error('Bad value: ' + v);
+      return n;
+    };
+    if (range.includes('-')) {
+      const [a,b] = range.split('-');
+      let lo = norm(a), hi = norm(b);
+      for (let i=lo;i<=hi;i+=step) if (i>=min && i<=max) out.add(i);
+    } else {
+      const n = norm(range);
+      if (step > 1) { for (let i=n;i<=max;i+=step) out.add(i); }
+      else if (n>=min && n<=max) out.add(n);
+    }
+  });
+  return { any:false, values:out };
+}
+const MON = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+const DOW = {sun:0,mon:1,tue:2,wed:3,thu:4,fri:5,sat:6};
+function parseCron(raw) {
+  let expr = raw.trim();
+  if (MACROS[expr]) expr = MACROS[expr];
+  const parts = expr.split(/\s+/);
+  if (parts.length !== 5) throw new Error('Use 5 fields: minute hour day month weekday.');
+  return {
+    min: parseField(parts[0], 0, 59),
+    hour: parseField(parts[1], 0, 23),
+    dom: parseField(parts[2], 1, 31),
+    mon: parseField(parts[3], 1, 12, MON),
+    dow: parseField(parts[4], 0, 7, DOW)
+  };
+}
+function match(field, n, dow7) {
+  if (field.any) return true;
+  if (dow7 && n === 0 && field.values.has(7)) return true;
+  return field.values.has(n);
+}
+function nextRuns(spec, count) {
+  const out = [];
+  const d = new Date();
+  d.setSeconds(0,0);
+  d.setMinutes(d.getMinutes() + 1);
+  let guard = 0;
+  while (out.length < count && guard++ < 400000) {
+    const dow = d.getDay();
+    const okMon = match(spec.mon, d.getMonth()+1);
+    const okMin = match(spec.min, d.getMinutes());
+    const okHour = match(spec.hour, d.getHours());
+    const okDom = spec.dom.any || match(spec.dom, d.getDate());
+    const okDow = spec.dow.any || match(spec.dow, dow, true);
+    const dayOk = (spec.dom.any && spec.dow.any) ? true : (spec.dom.any ? okDow : spec.dow.any ? okDom : (okDom || okDow));
+    if (okMon && okMin && okHour && dayOk) out.push(new Date(d));
+    d.setMinutes(d.getMinutes() + 1);
+  }
+  return out;
+}
+function describe(raw, spec) {
+  const bits = [];
+  bits.push(spec.min.any ? 'every minute' : 'at minute ' + [...spec.min.values].sort((a,b)=>a-b).join(','));
+  bits.push(spec.hour.any ? 'every hour' : 'during hour ' + [...spec.hour.values].sort((a,b)=>a-b).join(','));
+  if (!spec.dom.any) bits.push('on day-of-month ' + [...spec.dom.values].sort((a,b)=>a-b).join(','));
+  if (!spec.mon.any) bits.push('in month ' + [...spec.mon.values].sort((a,b)=>a-b).join(','));
+  if (!spec.dow.any) bits.push('on weekday ' + [...spec.dow.values].sort((a,b)=>a-b).join(',').replace(/7/g,'0'));
+  return raw.trim() + ' — ' + bits.join(', ') + '. Times are local.';
+}
+function run() {
+  try {
+    const raw = document.getElementById('expr').value;
+    const spec = parseCron(raw);
+    document.getElementById('human').textContent = describe(raw, spec);
+    const next = nextRuns(spec, 8);
+    document.getElementById('next').textContent = next.length ? next.map(d => d.toString()).join('\n') : 'No run found in the search window.';
+    RMKR.setStatus(document.getElementById('status'), 'Explained.', 'ok');
+  } catch (e) { RMKR.setStatus(document.getElementById('status'), e.message, 'err'); }
+}
+document.getElementById('run').onclick = run;
+document.querySelectorAll('[data-ex]').forEach(b => b.onclick = () => { document.getElementById('expr').value = b.dataset.ex; run(); });
+run();
+
+</script>
+</body>
+</html>
